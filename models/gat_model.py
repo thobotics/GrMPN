@@ -48,7 +48,7 @@ class MLPGraphIndependent(snt.AbstractModule):
             self._network = modules.GraphIndependent(
                 edge_model_fn=make_mlp_model,
                 node_model_fn=make_mlp_model,
-                global_model_fn=None)  # TODO: Does shortest path need it?
+                global_model_fn=None)
 
     def _build(self, inputs):
         return self._network(inputs)

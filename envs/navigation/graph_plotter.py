@@ -26,49 +26,33 @@ def zero_one_normalize(x):
     return (x - np.min(x)) / (np.max(x) - np.min(x))
 
 
-def draw_sols(values, raw_graphs, num_processing_steps_ge,
+def draw_sols(draw_maps, num_processing_steps_ge,
               data_path="./results", fig_name="solution",
               max_graphs_to_plot=3, num_steps_to_plot=4):
-    node_size = 120
+    raw_graphs, outputs = draw_maps
+    node_size = 20.0  # 10  # default: 120
     min_c = 0.05
     num_graphs = len(raw_graphs)
-    targets = utils_np.graphs_tuple_to_data_dicts(values["target"])
+    # targets = utils_np.graphs_tuple_to_data_dicts(values["target"])
     step_indices = np.floor(
         np.linspace(0, num_processing_steps_ge - 1,
                     num_steps_to_plot)).astype(int).tolist()
-    outputs = list(
-        zip(*(utils_np.graphs_tuple_to_data_dicts(values["outputs"][i])
-              for i in step_indices)))
+    # outputs = list(
+    #     zip(*(utils_np.graphs_tuple_to_data_dicts(values["outputs"][i])
+    #           for i in step_indices)))
     h = min(num_graphs, max_graphs_to_plot)
+    outputs = [[o[i] for i in step_indices] for o in outputs[:h]]
+
     w = num_steps_to_plot + 1
     fig = plt.figure(101, figsize=(18, h * 3))
     fig.clf()
     ncs = []
 
-    for j, (graph, target, output) in enumerate(zip(raw_graphs, targets, outputs)):
+    for j, (graph, output) in enumerate(zip(raw_graphs, outputs)):
         if j >= h:
             break
         pos = get_node_dict(graph, "pos")
-        ground_truth = target["nodes"][:, -1]
-        # Ground truth.
-        iax = j * (1 + num_steps_to_plot) + 1
-        ax = fig.add_subplot(h, w, iax)
-        plotter = GraphPlotter(ax, graph, pos)
-        color = {}
-        for i, n in enumerate(plotter.nodes):
-            color[n] = np.array([1.0 - ground_truth[i], 0.0, ground_truth[i], 1.0
-                                 ]) * (1.0 - min_c) + min_c
-        plotter.draw_graph_with_solution(node_size=node_size, node_color=color)
-        ax.set_axis_on()
-        ax.set_xticks([])
-        ax.set_yticks([])
-        try:
-            ax.set_facecolor([0.9] * 3 + [1.0])
-        except AttributeError:
-            ax.set_axis_bgcolor([0.9] * 3 + [1.0])
-        ax.grid(None)
-        ax.set_title("Ground truth\nSolution length: {}".format(
-            plotter.solution_length))
+
         # Prediction.
         for k, outp in enumerate(output):
             iax = j * (1 + num_steps_to_plot) + 2 + k
@@ -87,8 +71,6 @@ def draw_sols(values, raw_graphs, num_processing_steps_ge,
 
             prob = np.squeeze(zero_one_normalize(np.array(outp_nodes)))
             for i, n in enumerate(non_end_nodes):
-                # color[n] = np.array([1.0 - prob[i], 0.0, prob[i], 0.5
-                #                      ]) * (1.0 - min_c) + min_c
                 color[n] = prob[i]
             plotter.draw_graph_value(non_end_nodes, node_size=node_size, node_color=color)
             ax.set_title("Model-predicted\nStep {:02d} / {:02d}".format(
@@ -250,7 +232,7 @@ class GraphPlotter(object):
             linewidths=node_linewidth,
             zorder=20)
         # Plot edges.
-        self.draw_edges(edgelist=self.edges, width=edge_width, zorder=10)
+        self.draw_edges(edgelist=self.edges, width=edge_width, arrows=False, zorder=10)
 
     def draw_graph_with_solution(self,
                                  node_size=200,
@@ -300,7 +282,8 @@ class GraphPlotter(object):
             zorder=80)
         # Plot solution edges.
         node_collections["solution edges"] = self.draw_edges(
-            edgelist=self.solution_edges, width=solution_edge_width, zorder=70)
+            edgelist=self.solution_edges, width=solution_edge_width, arrows=False, zorder=70)
+
         # Plot non-solution nodes.
         if isinstance(node_color, dict):
             c = [node_color[n] for n in self.non_solution_nodes]
@@ -315,7 +298,7 @@ class GraphPlotter(object):
             zorder=20)
         # Plot non-solution edges.
         node_collections["non-solution edges"] = self.draw_edges(
-            edgelist=self.non_solution_edges, width=edge_width, zorder=10)
+            edgelist=self.non_solution_edges, width=edge_width, arrows=False, zorder=10)
         # Set title as solution length.
         self._ax.set_title("Solution length: {}".format(self.solution_length))
         return node_collections
@@ -333,13 +316,13 @@ class GraphPlotter(object):
 
         node_border_color = (0.0, 0.0, 0.0, 1.0)
         # Plot start nodes.
-        self.draw_nodes(
-            nodelist=self.start_nodes,
-            node_size=node_size,
-            node_color=start_color,
-            linewidths=solution_node_linewidth,
-            edgecolors=node_border_color,
-            zorder=100)
+        # self.draw_nodes(
+        #     nodelist=self.start_nodes,
+        #     node_size=node_size,
+        #     node_color=start_color,
+        #     linewidths=solution_node_linewidth,
+        #     edgecolors=node_border_color,
+        #     zorder=100)
         # Plot end nodes.
         self.draw_nodes(
             nodelist=self.end_nodes,
@@ -363,6 +346,6 @@ class GraphPlotter(object):
             zorder=80)
 
         # Plot edges.
-        self.draw_edges(edgelist=self.edges, width=edge_width, zorder=10)
+        self.draw_edges(edgelist=self.edges, width=edge_width, arrows=False, zorder=10)
 
         return

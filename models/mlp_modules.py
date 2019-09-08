@@ -68,7 +68,6 @@ class GraphNetwork(snt.AbstractModule):
         node_block_opt = _make_default_node_block_opt(node_block_opt, reducer)
         global_block_opt = _make_default_global_block_opt(global_block_opt, reducer)
 
-        # TODO: Does shortest path need it?
         # edge_block_opt["use_edges"] = True
         # edge_block_opt["use_globals"] = False
         # node_block_opt["use_nodes"] = True
@@ -98,4 +97,3 @@ class GraphNetwork(snt.AbstractModule):
           An output `graphs.GraphsTuple` with updated edges, nodes and globals.
         """
         return self._global_block(self._node_block(self._edge_block(graph)))
-        # return self._node_block(self._edge_block(graph))

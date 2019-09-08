@@ -13,10 +13,53 @@ import numpy as np
 import networkx as nx
 
 from lib.misc import *
-from envs.expert_generator import ExpertGenerator
 
 
-def graph_to_input_target(graph, full_sol=False, end_only=True):
+def graph_to_input(graph, end_only=True, coord=False):
+    """Returns input feature vectors for training.
+
+    Args:
+      graph: An `nx.DiGraph` instance.
+
+    Returns:
+      The input `nx.DiGraph` instance.
+      The target `nx.DiGraph` instance.
+
+    Raises:
+      ValueError: unknown node type
+    """
+
+    if end_only:
+        input_node_fields = ("end",)
+    else:
+        input_node_fields = ("start", "end")
+
+    if coord:
+        input_node_fields += ("rel_pos",)
+
+    # input_node_fields += ("obstacle", )
+
+    input_edge_fields = ("distance",)
+
+    input_graph = graph.copy()
+
+    solution_length = 0
+    for node_index, node_feature in graph.nodes(data=True):
+        input_graph.add_node(
+            node_index, features=create_feature(node_feature, input_node_fields))
+
+    solution_length /= graph.number_of_nodes()
+
+    for receiver, sender, features in graph.edges(data=True):
+        input_graph.add_edge(
+            sender, receiver, features=create_feature(features, input_edge_fields))
+
+    input_graph.graph["features"] = np.array([0.0])
+
+    return input_graph
+
+
+def graph_to_input_target(graph, full_sol=False, end_only=True, coord=False):
     """Returns 2 graphs with input and target feature vectors for training.
 
     Args:
@@ -34,6 +77,9 @@ def graph_to_input_target(graph, full_sol=False, end_only=True):
         input_node_fields = ("end",)
     else:
         input_node_fields = ("start", "end")
+
+    if coord:
+        input_node_fields += ("rel_pos",)
 
     # input_node_fields += ("obstacle", )
 

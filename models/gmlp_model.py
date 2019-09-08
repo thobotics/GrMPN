@@ -51,7 +51,7 @@ class MLPGraphIndependent(snt.AbstractModule):
             self._network = modules.GraphIndependent(
                 edge_model_fn=make_mlp_model,
                 node_model_fn=make_mlp_model,
-                global_model_fn=make_mlp_model)  # TODO: Does shortest path need it?
+                global_model_fn=make_mlp_model)
 
     def _build(self, inputs):
         return self._network(inputs)
@@ -63,8 +63,6 @@ class MLPGraphNetwork(snt.AbstractModule):
     def __init__(self, name="MLPGraphNetwork"):
         super(MLPGraphNetwork, self).__init__(name=name)
         with self._enter_variable_scope():
-            # self._network = modules.GraphNetwork(make_mlp_model, make_mlp_model,
-            #                                      make_mlp_model)
             self._network = GraphNetwork(make_mlp_model, make_mlp_model, make_mlp_model)
 
     def _build(self, inputs):
