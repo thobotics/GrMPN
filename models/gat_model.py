@@ -88,10 +88,6 @@ class AttentionGraphNetwork(snt.AbstractModule):
             self._key_fn, self._query_fn, self._value_fn, self._edge_fn = [], [], [], []
 
             for _ in range(1):
-                # kq_fn = snt.Module(
-                #   lambda x: make_mlp_model()(x), name="kq_model")
-                # self._key_fn.append(kq_fn)
-                # self._query_fn.append(kq_fn)
 
                 self._key_fn.append(snt.Module(
                     lambda x: make_mlp_model()(x), name="k_model"))
@@ -161,13 +157,11 @@ class EncodeAttentionDecode(snt.AbstractModule):
         super(EncodeAttentionDecode, self).__init__(name=name)
 
         self._attention = []
-        # self._core = []
         self._decoder = []
         self._encoder = MLPGraphIndependent()
 
         for _ in range(NUM_HEADS):
             self._attention.append(AttentionGraphNetwork())
-            # self._core.append(MLPGraphNetwork())
             self._decoder.append(MLPGraphIndependent())
 
         # Transforms the outputs into the appropriate shapes.
@@ -191,7 +185,6 @@ class EncodeAttentionDecode(snt.AbstractModule):
 
     def _build(self, input_op, num_processing_steps):
 
-        # input_graph = input_op.replace(nodes=tf.expand_dims(input_op.nodes[:, 1], 1))
         input_graph = input_op
         latent = self._encoder(input_graph)
         latent0 = latent
@@ -208,13 +201,8 @@ class EncodeAttentionDecode(snt.AbstractModule):
 
             for k in range(NUM_HEADS):
                 core_input = utils_tf.concat([latent0, latents[k]], axis=1)
-                # latents[k] = self._core[k](core_input)
                 latents[k] = self._attention[k](core_input)[0]
-                # latent, coeff_weights = self._attention(core_input)
-
-                # decoded_op = self._intention(latent, coeff_weights)
                 decoded_op.append(self._decoder[k](latents[k]))
-                # decoded_op = latent
 
                 output.append(self._output_transform[k](decoded_op[k]))
 
