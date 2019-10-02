@@ -53,8 +53,8 @@ class Navigation(Domain):
 
         return loss_ops
 
-    def fetch_inputs(self, inputs, list_paths, input_ph, neigh_ph=None, segment_ph=None, label_ph=None,
-                     full_grid=False):
+    def fetch_inputs(self, inputs, list_paths, input_ph, input_embed_ph=None,
+                     neigh_ph=None, segment_ph=None, label_ph=None, full_grid=False):
         input_graphs = utils_np.networkxs_to_graphs_tuple(inputs)
 
         start_idxs = []

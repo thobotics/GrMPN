@@ -31,7 +31,7 @@ class Domain(object):
     def create_loss_ops(self, output_ops, npossible_ph, segment_ph, label_ph):
         pass
 
-    def fetch_inputs(self, inputs, list_paths, input_ph, neigh_ph, segment_ph, label_ph):
+    def fetch_inputs(self, inputs, list_paths, input_ph, input_embed_ph, neigh_ph, segment_ph, label_ph):
         pass
 
     def compute_accuracy(self, target, output, path_idxs, neigh_idxs, use_nodes, use_edges):

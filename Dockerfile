@@ -10,7 +10,7 @@ RUN apt-get -y install libglu1-mesa libxi-dev libxmu-dev libglu1-mesa-dev
 # Install basic libraries
 RUN pip3 install --upgrade pip
 RUN pip3 install numpy matplotlib scipy scikit-learn future
-RUN pip3 install tensorflow-gpu==1.12 tensorflow-probability==0.5.0 graph_nets jupyter
+RUN pip3 install tensorflow-gpu==1.12 tensorflow-probability==0.5.0 dm-sonnet==1.32 graph_nets jupyter
 RUN pip3 install pygsp pyyaml shapely rasterio
 
 # Install additional requirements

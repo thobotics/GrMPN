@@ -183,10 +183,10 @@ class EncodeAttentionDecode(snt.AbstractModule):
                 self._output_transform.append(modules.GraphIndependent(edge_fn, node_fn,
                                                                        global_fn))
 
-    def _build(self, input_op, num_processing_steps):
+    def _build(self, latent, num_processing_steps):
 
-        input_graph = input_op
-        latent = self._encoder(input_graph)
+        # input_graph = input_op
+        # latent = self._encoder(input_graph)
         latent0 = latent
 
         latents = [latent.replace(nodes=tf.identity(latent.nodes),
@@ -210,5 +210,5 @@ class EncodeAttentionDecode(snt.AbstractModule):
             agg_edges = tf.reduce_mean(tf.stack([o.edges for o in output]), axis=0)
             agg_globals = tf.reduce_mean(tf.stack([o.globals for o in output]), axis=0)
 
-            output_ops.append(input_graph.replace(nodes=agg_nodes, edges=agg_edges, globals=agg_globals))
+            output_ops.append(latent0.replace(nodes=agg_nodes, edges=agg_edges, globals=agg_globals))
         return output_ops

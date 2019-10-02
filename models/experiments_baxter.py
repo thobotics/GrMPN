@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
 """
-    experiments.py
+    experiments_baxter.py
     
-    Created on  : August 11, 2019
+    Created on  : October 01, 2019
         Author  : thobotics
         Name    : Tai Hoang
 """
@@ -25,11 +25,12 @@ import models.gat_model as gat_model
 
 class Experiments(object):
 
-    def __init__(self, name, domain, data_generator, model_type="GN",
+    def __init__(self, name, domain, data_generator, model_type="GN", embed_type="MLP",
                  n_ptrain=15, n_ptest=15, seed=0,
                  kw_domains=None, kw_opt=None):
 
         assert model_type in ["GN", "GAT"]
+        assert embed_type in ["GN", "GCN", "MLP"]
         kw_domains = kw_domains if kw_domains else {}
         kw_opt = kw_opt if kw_opt else {}
 
@@ -38,13 +39,13 @@ class Experiments(object):
         self.domain = domain
         self.n_ptrain = n_ptrain
         self.n_ptest = n_ptest
+        self.embed_type = embed_type
 
         """ Construct model """
 
         # Data.
         # Input and target placeholders.
-        # input_ph, target_ph = self.domain.create_placeholders(data_generator)
-        input_ph = self.domain.create_placeholders(data_generator)
+        input_ph, input_embed_ph = self.domain.create_placeholders(data_generator)
         self.npossible_ph = tf.placeholder(tf.int32, shape=(None,))
         self.segment_ph = tf.placeholder(tf.int32, shape=(None,))
         self.label_ph = tf.placeholder(tf.int32, shape=(None,))
@@ -62,7 +63,53 @@ class Experiments(object):
             gat_model.NUM_HEADS = kw_opt["n_heads"]
             self.model = gat_model.EncodeAttentionDecode(node_output_size=1)
 
-        encoded_input = self.model._encoder(input_ph)
+        # Instantiate the embedding
+
+        if self.embed_type == "GN":
+            import models.emb_gn_model as emb_gn_model
+            emb_gn_model.LATENT_SIZE = kw_opt["n_hidden"]
+            emb_gn_model.NUM_LAYERS = kw_opt["n_layers"]
+
+            kinematic_encode = emb_gn_model.EncodeKinematic()
+            encoded_input = kinematic_encode(input_ph, input_embed_ph)
+
+            self.input_ph, self.input_embed_ph = make_all_runnable_in_session(input_ph, input_embed_ph)
+
+        elif self.embed_type == "GCN":
+
+            kinematic_shape = (None, 1)
+            num_supports = 1
+            gcn_placeholders = {
+                'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
+                'features': tf.sparse_placeholder(tf.float32, shape=kinematic_shape),
+                'dropout': tf.placeholder_with_default(0., shape=()),
+                'num_features_nonzero': tf.placeholder(tf.int32),  # helper variable for sparse dropout
+                'segment_ph': tf.placeholder(tf.int32, shape=(None,)),  # helper variable for global readout
+            }
+
+            import models.emb_gcn_model as emb_gcn_model
+            emb_gcn_model.LATENT_SIZE = kw_opt["n_hidden"]
+            emb_gcn_model.NUM_LAYERS = kw_opt["n_layers"]
+
+            kinematic_encode = emb_gcn_model.EncodeKinematic(placeholders=gcn_placeholders)
+            encoded_input = kinematic_encode(input_ph, gcn_placeholders["features"])
+
+            self.input_ph = make_all_runnable_in_session(input_ph)[0]
+            self.input_embed_ph = gcn_placeholders
+
+        else:
+            # encoded_input = self.model._encoder(input_ph)
+
+            import models.emb_mlp_model as emb_mlp_model
+            emb_mlp_model.LATENT_SIZE = kw_opt["n_hidden"]
+            emb_mlp_model.NUM_LAYERS = kw_opt["n_layers"]
+
+            kinematic_encode = emb_mlp_model.EncodeKinematic()
+            encoded_input = kinematic_encode(input_ph)
+
+            self.input_ph = make_all_runnable_in_session(input_ph)[0]
+            self.input_embed_ph = None
+
         self.output_ops_tr = self.model(encoded_input, n_ptrain)
         self.output_ops_ge = self.model(encoded_input, n_ptest)
 
@@ -82,11 +129,6 @@ class Experiments(object):
         learning_rate = 1e-3  # kw_opt["learning_rate"]
         optimizer = tf.train.AdamOptimizer(learning_rate)
         self.step_op = optimizer.minimize(self.loss_op_tr)
-
-        # Lets an iterable of TF graphs be output from a session as NP graphs.
-        self.input_ph = make_all_runnable_in_session(input_ph)[0]
-        self.input_emb_ph = None
-        # self.input_ph, self.target_ph = make_all_runnable_in_session(input_ph, target_ph)
 
         """ Construct TF session """
         config = tf.ConfigProto()
@@ -124,7 +166,9 @@ class Experiments(object):
 
         return inputs, graphs, tr_paths
 
-    def train(self, train_generator, valid_generator, iteration=1000, output="./results.csv", draw_n=0):
+    def train(self, train_generator, valid_generator, iteration=30, output="./results.csv", draw_n=0):
+
+        # self.restore(self.sess, "%s/model_i_19.ckpt" % self.name)
 
         last_iteration = 0
         logged_iterations = []
@@ -136,7 +180,7 @@ class Experiments(object):
         solveds_ge = []
 
         # How much time between logging and printing the current results.
-        log_every_seconds = 20
+        log_every_seconds = 0
 
         # Best validation loss
         best_val_loss = 999.0
@@ -158,7 +202,7 @@ class Experiments(object):
                           "TestCorrect, TestSoved\n")
 
         # for iteration in range(last_iteration, iteration):
-        for epoch in range(iteration):
+        for epoch in range(last_iteration, iteration):
 
             num_tr_batches = 0
             num_te_batches = 0
@@ -174,7 +218,7 @@ class Experiments(object):
 
                 """ Run predicted outputs """
                 feed_dict, tr_neigh_idxs, tr_label_idxs = self.domain.fetch_inputs(tr_inputs, tr_paths,
-                                                                                   self.input_ph, self.input_emb_ph,
+                                                                                   self.input_ph, self.input_embed_ph,
                                                                                    self.npossible_ph, self.segment_ph,
                                                                                    self.label_ph)
 
@@ -212,7 +256,7 @@ class Experiments(object):
 
                 """ Run predicted outputs """
                 feed_dict, te_neigh_idxs, te_label_idxs = self.domain.fetch_inputs(te_inputs, te_paths,
-                                                                                   self.input_ph, self.input_emb_ph,
+                                                                                   self.input_ph, self.input_embed_ph,
                                                                                    self.npossible_ph, self.segment_ph,
                                                                                    self.label_ph)
 
@@ -319,7 +363,7 @@ class Experiments(object):
 
                 """ Run predicted outputs """
                 feed_dict, tr_neigh_idxs, tr_label_idxs = self.domain.fetch_inputs(tr_inputs, tr_paths,
-                                                                                   self.input_ph, self.input_emb_ph,
+                                                                                   self.input_ph, self.input_embed_ph,
                                                                                    self.npossible_ph, self.segment_ph,
                                                                                    self.label_ph)
 
@@ -407,7 +451,7 @@ class Experiments(object):
 
                     """ Run predicted outputs """
                     feed_dict, tr_neigh_idxs, tr_label_idxs = self.domain.fetch_inputs(tr_inputs, tr_paths,
-                                                                                       self.input_ph, self.input_emb_ph,
+                                                                                       self.input_ph,
                                                                                        self.npossible_ph,
                                                                                        self.segment_ph,
                                                                                        self.label_ph)
