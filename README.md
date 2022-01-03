@@ -1,5 +1,5 @@
 # GrMPN
-Graph-based Motion Planning Networks
+[Graph-based Motion Planning Networks](https://link.springer.com/chapter/10.1007/978-3-030-67661-2_33)
 
 ## Prerequisites
 
